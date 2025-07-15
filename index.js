@@ -100,8 +100,8 @@ client.on('interactionCreate', async interaction => {
             }
 
             // --- Embed Customization for sendanon (always anonymous) ---
-            const embedTitle = '🤫 A Whisper in the Dark';
-            const embedFooterText = 'Anonymous transmission received.';
+            const embedTitle = '<:__:1393759814802215073> voice without a name';
+            const embedFooterText = 'unsent log captured ::';
             const embedColor = 0x36393F;
 
             const anonymousEmbed = new EmbedBuilder()
@@ -179,7 +179,7 @@ client.on('interactionCreate', async interaction => {
             }
 
             // --- Embed Customization for anonreply (always anonymous) ---
-            const replyEmbedTitle = '🤫 Anonymous Echo';
+            const replyEmbedTitle = '<:__:1393759814802215073> one of many';
             const replyEmbedFooterText = 'A reply from the unknown.';
             const replyEmbedColor = 0x36393F;
 
