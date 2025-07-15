@@ -1,5 +1,8 @@
 require('dotenv').config();
+// IMPORTANT: Keep InteractionResponseFlags in the import to check if it's available
 const { Client, GatewayIntentBits, EmbedBuilder, Collection, ActivityType, InteractionResponseFlags } = require('discord.js');
+const { version: discordVersion } = require('discord.js'); // Import the version
+
 
 // Initialize the Discord client with necessary intents
 const client = new Client({
@@ -14,25 +17,39 @@ const BOT_TOKEN = process.env.DISCORD_BOT_TOKEN;
 const ANONYMOUS_CHANNEL_ID = process.env.ANONYMOUS_CHANNEL_ID;
 
 // --- In-memory storage for anonymous message mappings ---
-// Pseudonym storage is no longer needed
 const anonymousMessageMap = new Collection();
+
+
+// Define the ephemeral flag numerically for robustness
+// This is equivalent to InteractionResponseFlags.Ephemeral (value 64)
+const EPHEMERAL_FLAG = InteractionResponseFlags?.Ephemeral || 64;
 
 
 // --- Bot Event Listeners ---
 
 client.once('ready', async () => {
     console.log(`Logged in as ${client.user.tag}!`);
+    console.log(`Discord.js version: ${discordVersion}`); // Log the detected discord.js version
+
+    // Add a check for InteractionResponseFlags
+    if (typeof InteractionResponseFlags === 'undefined' || InteractionResponseFlags.Ephemeral === undefined) {
+        console.warn('WARNING: InteractionResponseFlags.Ephemeral is undefined. Using raw numeric flag (64) for ephemeral replies.');
+    } else {
+        console.log('InteractionResponseFlags.Ephemeral is available and will be used.');
+    }
+
+
     console.log('Bot is ready to receive slash commands and handle interactions.');
 
     // --- Set the bot's rich presence here ---
     client.user.setPresence({
         activities: [{
-            name: 'to old messages again',
-            type: ActivityType.Listening
+            name: 'old messages again',
+            type: ActivityType.Playing
         }],
         status: 'dnd'
     });
-    console.log('Bot presence set to "Listening: to old messages again".');
+    console.log('Bot presence set to "Playing: Filling the void with messages".');
     // --- End rich presence setting ---
 
 
@@ -59,10 +76,9 @@ client.on('interactionCreate', async interaction => {
         const { commandName } = interaction;
 
         if (commandName === 'sendanon') {
-            await interaction.deferReply({ flags: InteractionResponseFlags.Ephemeral });
+            // Acknowledge command, reply privately (using EPHEMERAL_FLAG)
+            await interaction.deferReply({ flags: EPHEMERAL_FLAG }); // CHANGED HERE
 
-            // Removed 'type' option as it's always anonymous now
-            // Removed 'pseudonym' option
             const content = interaction.options.getString('content');
 
             // --- Fetch the predefined target channel ---
@@ -72,40 +88,38 @@ client.on('interactionCreate', async interaction => {
                 if (!targetChannel || targetChannel.type !== 0) {
                     return await interaction.editReply({
                         content: 'The configured anonymous message channel is invalid or inaccessible. Please contact a bot administrator.',
-                        flags: InteractionResponseFlags.Ephemeral,
+                        flags: EPHEMERAL_FLAG, // CHANGED HERE
                     });
                 }
             } catch (error) {
                 console.error(`Error fetching configured channel ID ${ANONYMOUS_CHANNEL_ID}:`, error);
                 return await interaction.editReply({
                     content: 'An error occurred while trying to access the anonymous message channel. Please contact a bot administrator.',
-                    flags: InteractionResponseFlags.Ephemeral,
+                    flags: EPHEMERAL_FLAG, // CHANGED HERE
                 });
             }
 
             // --- Embed Customization for sendanon (always anonymous) ---
-            const embedTitle = '<:__:1393759814802215073> voice without a name';
+            const embedTitle = '🤫 A Whisper in the Dark';
             const embedFooterText = 'Anonymous transmission received.';
-            const embedColor = 0x36393F; // Discord default grey color
+            const embedColor = 0x36393F;
 
             const anonymousEmbed = new EmbedBuilder()
                 .setColor(embedColor)
                 .setTitle(embedTitle)
                 .setDescription(content)
                 .setTimestamp()
-                .setFooter({ text: embedFooterText + ' \u200B__ANON_MSG__' }); // Keep the hidden identifier
+                .setFooter({ text: embedFooterText + ' \u200B__ANON_MSG__' });
 
             try {
                 const sentMessage = await targetChannel.send({ embeds: [anonymousEmbed] });
 
-                // Always map anonymous messages
                 anonymousMessageMap.set(sentMessage.id, interaction.user.id);
                 console.log(`Mapped anonymous message ${sentMessage.id} to user ${interaction.user.id} in memory.`);
 
-
                 await interaction.editReply({
                     content: `Your anonymous message has been sent to #${targetChannel.name}!`,
-                    flags: InteractionResponseFlags.Ephemeral,
+                    flags: EPHEMERAL_FLAG, // CHANGED HERE
                 });
 
                 console.log(`[${interaction.user.tag}] sent an anonymous message to #${targetChannel.name}`);
@@ -114,18 +128,16 @@ client.on('interactionCreate', async interaction => {
                 console.error(`Failed to send anonymous message to ${targetChannel.name}:`, error);
                 await interaction.editReply({
                     content: 'There was an error sending your message. Please ensure I have permissions to send messages and embed links in the target channel.',
-                    flags: InteractionResponseFlags.Ephemeral,
+                    flags: EPHEMERAL_FLAG, // CHANGED HERE
                 });
             }
         }
 
         else if (commandName === 'anonreply') {
-            await interaction.deferReply({ flags: InteractionResponseFlags.Ephemeral });
+            await interaction.deferReply({ flags: EPHEMERAL_FLAG }); // CHANGED HERE
 
             const targetMessageId = interaction.options.getString('target_message_id');
             const replyContent = interaction.options.getString('content');
-            // Removed 'replyType' option as it's always anonymous now
-            // Removed 'pseudonym' option
 
             // --- Fetch the original message from the predefined target channel ---
             let targetChannel;
@@ -134,14 +146,14 @@ client.on('interactionCreate', async interaction => {
                 if (!targetChannel || targetChannel.type !== 0) {
                     return await interaction.editReply({
                         content: 'The configured anonymous message channel is invalid or inaccessible. Please contact a bot administrator.',
-                        flags: InteractionResponseFlags.Ephemeral,
+                        flags: EPHEMERAL_FLAG, // CHANGED HERE
                     });
                 }
             } catch (error) {
                 console.error(`Error fetching configured channel ID ${ANONYMOUS_CHANNEL_ID}:`, error);
                 return await interaction.editReply({
                     content: 'An error occurred while trying to access the anonymous message channel. Please contact a bot administrator.',
-                    flags: InteractionResponseFlags.Ephemeral,
+                    flags: EPHEMERAL_FLAG, // CHANGED HERE
                 });
             }
 
@@ -153,22 +165,21 @@ client.on('interactionCreate', async interaction => {
                 console.error('Error fetching target message for anonymous reply:', error);
                 return await interaction.editReply({
                     content: 'Could not find the message with that ID in the designated anonymous channel. Please ensure the message ID is correct.',
-                    flags: InteractionResponseFlags.Ephemeral,
+                    flags: EPHEMERAL_FLAG, // CHANGED HERE
                 });
             }
 
-            // Validation for anonymous messages remains the same
             if (targetMessage.author.id !== client.user.id ||
                 !targetMessage.embeds[0] ||
                 !targetMessage.embeds[0].footer?.text?.includes('\u200B__ANON_MSG__')) {
                 return await interaction.editReply({
                     content: 'That message is not a valid anonymous message from this bot to reply to.',
-                    flags: InteractionResponseFlags.Ephemeral,
+                    flags: EPHEMERAL_FLAG, // CHANGED HERE
                 });
             }
 
             // --- Embed Customization for anonreply (always anonymous) ---
-            const replyEmbedTitle = '<:__:1393759814802215073> one of many';
+            const replyEmbedTitle = '🤫 Anonymous Echo';
             const replyEmbedFooterText = 'A reply from the unknown.';
             const replyEmbedColor = 0x36393F;
 
@@ -190,7 +201,7 @@ client.on('interactionCreate', async interaction => {
 
                 await interaction.editReply({
                     content: `Your anonymous reply has been sent to #${targetChannel.name}!`,
-                    flags: InteractionResponseFlags.Ephemeral,
+                    flags: EPHEMERAL_FLAG, // CHANGED HERE
                 });
 
                 console.log(`[${interaction.user.tag}] sent an anonymous reply to ${targetMessageId}`);
@@ -199,7 +210,7 @@ client.on('interactionCreate', async interaction => {
                 console.error('Failed to send anonymous reply:', error);
                 await interaction.editReply({
                     content: 'There was an error sending your anonymous reply. Please try again later. Ensure I have permissions to send messages and embed links in the target channel.',
-                    flags: InteractionResponseFlags.Ephemeral,
+                    flags: EPHEMERAL_FLAG, // CHANGED HERE
                 });
             }
         }
