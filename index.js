@@ -1,5 +1,5 @@
 require('dotenv').config();
-const { Client, GatewayIntentBits, EmbedBuilder, Collection, ActivityType } = require('discord.js'); // Import ActivityType
+const { Client, GatewayIntentBits, EmbedBuilder, Collection, ActivityType, InteractionResponseFlags } = require('discord.js');
 
 // Initialize the Discord client with necessary intents
 const client = new Client({
@@ -18,32 +18,51 @@ const anonymousMessageMap = new Collection();
 const usedPseudonyms = new Collection();
 
 
-// --- Themed Pseudonyms Configuration ---
-const themedPseudonyms = {
-    "unsent": ["message with no return", "heard but not seen", "an unknown sender speaks", "for someone you almost knew", "voice without a name"],
-    "unsent2": ["unsigned and fading", "one of many", "signal from nowhere", "a line left hanging", "dropped in the dark"],
-    "random": []
-};
+// --- New Pseudonyms Configuration ---
+const availablePseudonyms = [
+    "message with no return",
+    "heard but not seen",
+    "an unknown sender speaks",
+    "for someone you almost knew",
+    "voice without a name",
+    "unsigned and fading",
+    "one of many",
+    "signal from nowhere",
+    "a line left hanging",
+    "dropped in the dark"
+];
 
-Object.values(themedPseudonyms).forEach(arr => {
-    if (Array.isArray(arr)) {
-        themedPseudonyms.random.push(...arr);
-    }
-});
+function getNextAvailablePseudonym() {
+    const cooldownPeriod = 3600000; // 1 hour cooldown
+    const now = Date.now();
 
-function getThemedPseudonym(theme) {
-    if (!themedPseudonyms[theme] || !Array.isArray(themedPseudonyms[theme])) {
-        return null;
-    }
+    // Filter for pseudonyms not currently in use or whose cooldown has expired
+    const available = availablePseudonyms.filter(p => !usedPseudonyms.has(p) || (now - usedPseudonyms.get(p) > cooldownPeriod));
 
-    const cooldownPeriod = 3600000;
-    const available = themedPseudonyms[theme].filter(p => !usedPseudonyms.has(p) || (Date.now() - usedPseudonyms.get(p) > cooldownPeriod));
     if (available.length === 0) {
-        return null;
+        // If all are currently in use within cooldown, find the one that will be available earliest
+        let earliestAvailablePseudonym = null;
+        let earliestTime = Infinity;
+
+        for (const p of availablePseudonyms) {
+            if (usedPseudonyms.has(p)) {
+                const availableAt = usedPseudonyms.get(p) + cooldownPeriod;
+                if (availableAt < earliestTime) {
+                    earliestTime = availableAt;
+                    earliestAvailablePseudonym = p;
+                }
+            }
+        }
+        // If no pseudonyms are available AND some exist (shouldn't happen if array is fixed and small),
+        // we might just return the one that expires earliest or a default.
+        // For simplicity, if all are technically on cooldown, we'll still pick one for now.
+        // In a real high-traffic scenario, you might want to wait or inform the user.
+        console.warn("All pseudonyms are currently on cooldown, picking the one that expires earliest.");
+        return earliestAvailablePseudonym || availablePseudonyms[Math.floor(Math.random() * availablePseudonyms.length)];
     }
 
     const chosen = available[Math.floor(Math.random() * available.length)];
-    usedPseudonyms.set(chosen, Date.now());
+    usedPseudonyms.set(chosen, now); // Mark as used with current timestamp
     return chosen;
 }
 
@@ -57,10 +76,10 @@ client.once('ready', async () => {
     // --- Set the bot's rich presence here ---
     client.user.setPresence({
         activities: [{
-            name: 'against the void with messages.',
-            type: ActivityType.Competing // 'PLAYING', 'LISTENING', 'WATCHING', 'STREAMING', 'COMPETING'
+            name: 'Filling the void with messages',
+            type: ActivityType.Playing
         }],
-        status: 'dnd' // 'online', 'idle', 'dnd' (do not disturb), 'invisible'
+        status: 'online'
     });
     console.log('Bot presence set to "Playing: Filling the void with messages".');
     // --- End rich presence setting ---
@@ -89,10 +108,10 @@ client.on('interactionCreate', async interaction => {
         const { commandName } = interaction;
 
         if (commandName === 'sendanon') {
-            await interaction.deferReply({ ephemeral: true });
+            await interaction.deferReply({ flags: InteractionResponseFlags.Ephemeral });
 
             const type = interaction.options.getString('type');
-            let pseudonym = interaction.options.getString('pseudonym');
+            let userProvidedPseudonym = interaction.options.getString('pseudonym'); // Renamed to clarify
             const content = interaction.options.getString('content');
 
             // --- Fetch the predefined target channel ---
@@ -102,62 +121,45 @@ client.on('interactionCreate', async interaction => {
                 if (!targetChannel || targetChannel.type !== 0) {
                     return await interaction.editReply({
                         content: 'The configured anonymous message channel is invalid or inaccessible. Please contact a bot administrator.',
-                        ephemeral: true,
+                        flags: InteractionResponseFlags.Ephemeral,
                     });
                 }
             } catch (error) {
                 console.error(`Error fetching configured channel ID ${ANONYMOUS_CHANNEL_ID}:`, error);
                 return await interaction.editReply({
                     content: 'An error occurred while trying to access the anonymous message channel. Please contact a bot administrator.',
-                    ephemeral: true,
+                    flags: InteractionResponseFlags.Ephemeral,
                 });
             }
 
-            // --- Pseudonym Handling Logic (remains the same) ---
-            const themeChoices = Object.keys(themedPseudonyms);
+            // --- Pseudonym Handling Logic ---
             let finalPseudonym = null;
 
             if (type === 'pseudonymous') {
-                if (pseudonym === 'custom_pseudonym') {
-                    if (!interaction.options.getString('pseudonym', false) || interaction.options.getString('pseudonym', false) === 'custom_pseudonym') {
-                        return await interaction.editReply({
-                            content: 'You selected "Custom Pseudonym" but did not provide a name. Please type your desired pseudonym after selecting the custom option, or choose a theme.',
-                            ephemeral: true,
-                        });
-                    }
-                    finalPseudonym = pseudonym;
-                } else if (pseudonym && themeChoices.includes(pseudonym.toLowerCase())) {
-                    const chosenTheme = pseudonym.toLowerCase();
-                    const newPseudonym = getThemedPseudonym(chosenTheme);
-                    if (newPseudonym) {
-                        finalPseudonym = newPseudonym;
-                    } else {
-                        return await interaction.editReply({
-                            content: `All pseudonyms in the "${chosenTheme}" theme are currently in use or were recently used. Please try again later or choose "Custom Pseudonym" and type a name.`,
-                            ephemeral: true,
-                        });
-                    }
-                } else if (!pseudonym) {
-                    return await interaction.editReply({
-                        content: 'You must provide a `pseudonym` for pseudonymous messages. Use a custom name or one of these themes: ' + themeChoices.join(', '),
-                        ephemeral: true,
-                    });
+                if (userProvidedPseudonym) {
+                    finalPseudonym = userProvidedPseudonym; // Use user-provided pseudonym if given
                 } else {
-                    finalPseudonym = pseudonym;
+                    finalPseudonym = getNextAvailablePseudonym(); // Get one from the list
+                    if (!finalPseudonym) {
+                        return await interaction.editReply({
+                            content: 'Could not assign a pseudonym. All pseudonyms are currently in use or on cooldown. Please try again later.',
+                            flags: InteractionResponseFlags.Ephemeral,
+                        });
+                    }
                 }
             }
 
-            // --- Embed Customization ---
+            // --- Embed Customization for sendanon ---
             let embedTitle = '';
             let embedFooterText = '';
             let embedColor = 0x36393F;
 
             if (type === 'anonymous') {
-                embedTitle = '<:__:1393759814802215073> A Whisper in the Dark';
+                embedTitle = '🤫 A Whisper in the Dark';
                 embedFooterText = 'Anonymous transmission received.';
                 embedColor = 0x36393F;
             } else if (type === 'pseudonymous') {
-                embedTitle = `<:__:1393759814802215073> Echo from ${finalPseudonym}`;
+                embedTitle = `🎭 Echo from ${finalPseudonym}`;
                 embedFooterText = `Sent from the shadows by ${finalPseudonym}.`;
                 embedColor = 0x7289DA;
             }
@@ -167,8 +169,7 @@ client.on('interactionCreate', async interaction => {
                 .setTitle(embedTitle)
                 .setDescription(content)
                 .setTimestamp()
-                .setFooter({ text: embedFooterText + ' \u200B__ANON_MSG__' })
-                .setThumbnail(commonThumbnailUrl);
+                .setFooter({ text: embedFooterText + ' \u200B__ANON_MSG__' });
 
             try {
                 const sentMessage = await targetChannel.send({ embeds: [anonymousEmbed] });
@@ -180,7 +181,7 @@ client.on('interactionCreate', async interaction => {
 
                 await interaction.editReply({
                     content: `Your ${type} message has been sent to #${targetChannel.name}!`,
-                    ephemeral: true,
+                    flags: InteractionResponseFlags.Ephemeral,
                 });
 
                 console.log(`[${interaction.user.tag}] sent a ${type} message to #${targetChannel.name}`);
@@ -189,18 +190,18 @@ client.on('interactionCreate', async interaction => {
                 console.error(`Failed to send ${type} message to ${targetChannel.name}:`, error);
                 await interaction.editReply({
                     content: 'There was an error sending your message. Please ensure I have permissions to send messages and embed links in the target channel.',
-                    ephemeral: true,
+                    flags: InteractionResponseFlags.Ephemeral,
                 });
             }
         }
 
         else if (commandName === 'anonreply') {
-            await interaction.deferReply({ ephemeral: true });
+            await interaction.deferReply({ flags: InteractionResponseFlags.Ephemeral });
 
             const targetMessageId = interaction.options.getString('target_message_id');
             const replyContent = interaction.options.getString('content');
             const replyType = interaction.options.getString('type');
-            let pseudonym = interaction.options.getString('pseudonym');
+            let userProvidedPseudonym = interaction.options.getString('pseudonym'); // Renamed to clarify
 
             // --- Fetch the original message from the predefined target channel ---
             let targetChannel;
@@ -209,14 +210,14 @@ client.on('interactionCreate', async interaction => {
                 if (!targetChannel || targetChannel.type !== 0) {
                     return await interaction.editReply({
                         content: 'The configured anonymous message channel is invalid or inaccessible. Please contact a bot administrator.',
-                        ephemeral: true,
+                        flags: InteractionResponseFlags.Ephemeral,
                     });
                 }
             } catch (error) {
                 console.error(`Error fetching configured channel ID ${ANONYMOUS_CHANNEL_ID}:`, error);
                 return await interaction.editReply({
                     content: 'An error occurred while trying to access the anonymous message channel. Please contact a bot administrator.',
-                    ephemeral: true,
+                    flags: InteractionResponseFlags.Ephemeral,
                 });
             }
 
@@ -228,7 +229,7 @@ client.on('interactionCreate', async interaction => {
                 console.error('Error fetching target message for anonymous reply:', error);
                 return await interaction.editReply({
                     content: 'Could not find the message with that ID in the designated anonymous channel. Please ensure the message ID is correct.',
-                    ephemeral: true,
+                    flags: InteractionResponseFlags.Ephemeral,
                 });
             }
 
@@ -237,49 +238,31 @@ client.on('interactionCreate', async interaction => {
                 !targetMessage.embeds[0].footer?.text?.includes('\u200B__ANON_MSG__')) {
                 return await interaction.editReply({
                     content: 'That message is not a valid anonymous message from this bot to reply to.',
-                    ephemeral: true,
+                    flags: InteractionResponseFlags.Ephemeral,
                 });
             }
 
-            // --- Pseudonym Handling Logic (remains the same) ---
-            const themeChoices = Object.keys(themedPseudonyms);
+            // --- Pseudonym Handling Logic ---
             let finalPseudonym = null;
 
             if (replyType === 'pseudonymous') {
-                if (pseudonym === 'custom_pseudonym') {
-                    if (!interaction.options.getString('pseudonym', false) || interaction.options.getString('pseudonym', false) === 'custom_pseudonym') {
-                        return await interaction.editReply({
-                            content: 'You selected "Custom Pseudonym" but did not provide a name. Please type your desired pseudonym after selecting the custom option, or choose a theme.',
-                            ephemeral: true,
-                        });
-                    }
-                    finalPseudonym = pseudonym;
-                } else if (pseudonym && themeChoices.includes(pseudonym.toLowerCase())) {
-                    const chosenTheme = pseudonym.toLowerCase();
-                    const newPseudonym = getThemedPseudonym(chosenTheme);
-                    if (newPseudonym) {
-                        finalPseudonym = newPseudonym;
-                    } else {
-                        return await interaction.editReply({
-                            content: `All pseudonyms in the "${chosenTheme}" theme are currently in use or were recently used for your reply. Please try again later or choose "Custom Pseudonym" and type a name.`,
-                            ephemeral: true,
-                        });
-                    }
-                } else if (!pseudonym) {
-                    return await interaction.editReply({
-                        content: 'You must provide a `pseudonym` for pseudonymous replies. Use a custom name or one of these themes: ' + themeChoices.join(', '),
-                        ephemeral: true,
-                    });
+                if (userProvidedPseudonym) {
+                    finalPseudonym = userProvidedPseudonym; // Use user-provided pseudonym if given
                 } else {
-                    finalPseudonym = pseudonym;
+                    finalPseudonym = getNextAvailablePseudonym(); // Get one from the list
+                    if (!finalPseudonym) {
+                        return await interaction.editReply({
+                            content: 'Could not assign a pseudonym for your reply. All pseudonyms are currently in use or on cooldown. Please try again later.',
+                            flags: InteractionResponseFlags.Ephemeral,
+                        });
+                    }
                 }
             }
 
-            // --- Embed Customization ---
+            // --- Embed Customization for anonreply ---
             let replyEmbedTitle = '';
             let replyEmbedFooterText = '';
             let replyEmbedColor = 0x36393F;
-            const replyCommonThumbnailUrl = 'https://melonvisuals.me/test/unsent.png';
 
             if (replyType === 'anonymous') {
                 replyEmbedTitle = '🤫 Anonymous Echo';
@@ -299,8 +282,7 @@ client.on('interactionCreate', async interaction => {
                 .setFooter({ text: replyEmbedFooterText })
                 .addFields(
                     { name: 'Replying to Message', value: `[Click to jump to message](https://discord.com/channels/${targetChannel.guild.id}/${targetChannel.id}/${targetMessageId})`, inline: false }
-                )
-                .setThumbnail(replyCommonThumbnailUrl);
+                );
 
             try {
                 await targetChannel.send({
@@ -310,7 +292,7 @@ client.on('interactionCreate', async interaction => {
 
                 await interaction.editReply({
                     content: `Your ${replyType} reply has been sent to #${targetChannel.name}!`,
-                    ephemeral: true,
+                    flags: InteractionResponseFlags.Ephemeral,
                 });
 
                 console.log(`[${interaction.user.tag}] sent a ${replyType} reply to ${targetMessageId}`);
@@ -319,7 +301,7 @@ client.on('interactionCreate', async interaction => {
                 console.error('Failed to send anonymous reply:', error);
                 await interaction.editReply({
                     content: 'There was an error sending your anonymous reply. Please try again later. Ensure I have permissions to send messages and embed links in the target channel.',
-                    ephemeral: true,
+                    flags: InteractionResponseFlags.Ephemeral,
                 });
             }
         }

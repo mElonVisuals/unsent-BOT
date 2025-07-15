@@ -1,20 +1,8 @@
 require('dotenv').config();
 const { REST, Routes, ApplicationCommandOptionType } = require('discord.js');
 
-// Define your themed pseudonyms here.
-const themedPseudonymsForDeploy = {
-    "unsent": ["message with no return", "heard but not seen", "an unknown sender speaks", "for someone you almost knew", "voice without a name"],
-    "unsent2": ["unsigned and fading", "one of many", "signal from nowhere", "a line left hanging", "dropped in the dark"],
-    "random": []
-};
-
-// Create choices array for the pseudonym option.
-const pseudonymThemeChoices = Object.keys(themedPseudonymsForDeploy).map(theme => ({
-    name: `${theme} Theme`,
-    value: theme.toLowerCase()
-}));
-pseudonymThemeChoices.push({ name: 'Custom Pseudonym (type your own)', value: 'custom_pseudonym' });
-
+// No longer define themedPseudonymsForDeploy or pseudonymThemeChoices here,
+// as the bot will handle pseudonym selection internally from a fixed list.
 
 const commands = [
     {
@@ -37,18 +25,15 @@ const commands = [
                 description: 'The content of your message.',
                 required: true,
             },
-            // REMOVED: { type: ApplicationCommandOptionType.Channel, name: 'channel', description: 'The channel to send the anonymous message to.', required: true, channel_types: [0] },
             {
                 type: ApplicationCommandOptionType.String,
                 name: 'pseudonym',
-                description: 'Your chosen name for pseudonymous messages, or select a theme.',
+                description: 'Specify a pseudonym for pseudonymous messages (optional).', // Updated description
                 required: false,
-                choices: pseudonymThemeChoices
+                // REMOVED: choices and related logic
             },
         ],
     },
-    // REMOVED: The /anonpoll command entirely
-
     {
         name: 'anonreply',
         description: 'Send an anonymous or pseudonymous reply to a message.',
@@ -78,9 +63,9 @@ const commands = [
             {
                 type: ApplicationCommandOptionType.String,
                 name: 'pseudonym',
-                description: 'Your chosen name for pseudonymous replies, or select a theme.',
+                description: 'Specify a pseudonym for pseudonymous replies (optional).', // Updated description
                 required: false,
-                choices: pseudonymThemeChoices
+                // REMOVED: choices and related logic
             },
         ],
     },
