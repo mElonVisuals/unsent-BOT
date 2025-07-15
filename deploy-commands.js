@@ -4,38 +4,17 @@ const { REST, Routes, ApplicationCommandOptionType } = require('discord.js');
 const commands = [
     {
         name: 'sendanon',
-        description: 'Send an anonymous message.', // Updated description
-        options: [
-            // Removed 'type' option as it's now always anonymous
-            {
-                type: ApplicationCommandOptionType.String,
-                name: 'content',
-                description: 'The content of your anonymous message.', // Updated description
-                required: true,
-            },
-            // Removed 'pseudonym' option
-        ],
-    },
-    {
-        name: 'anonreply',
-        description: 'Send an anonymous reply to a message.', // Updated description
+        description: 'Send an anonymous message.',
         options: [
             {
                 type: ApplicationCommandOptionType.String,
-                name: 'target_message_id',
-                description: 'The ID of the anonymous message you are replying to.', // Updated description
-                required: true,
-            },
-            {
-                type: ApplicationCommandOptionType.String,
                 name: 'content',
-                description: 'The content of your anonymous reply.', // Updated description
+                description: 'The content of your anonymous message.',
                 required: true,
             },
-            // Removed 'type' option as it's now always anonymous
-            // Removed 'pseudonym' option
         ],
     },
+    // Removed the entire 'anonreply' command object
 ];
 
 const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_BOT_TOKEN);
