@@ -1,5 +1,5 @@
 require('dotenv').config();
-const { Client, GatewayIntentBits, EmbedBuilder, Collection, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { Client, GatewayIntentBits, EmbedBuilder, Collection, ActivityType } = require('discord.js'); // Import ActivityType
 
 // Initialize the Discord client with necessary intents
 const client = new Client({
@@ -11,7 +11,7 @@ const client = new Client({
 });
 
 const BOT_TOKEN = process.env.DISCORD_BOT_TOKEN;
-const ANONYMOUS_CHANNEL_ID = process.env.ANONYMOUS_CHANNEL_ID; // Import the channel ID
+const ANONYMOUS_CHANNEL_ID = process.env.ANONYMOUS_CHANNEL_ID;
 
 // --- In-memory storage for anonymous message mappings and pseudonym usage ---
 const anonymousMessageMap = new Collection();
@@ -51,27 +51,35 @@ function getThemedPseudonym(theme) {
 
 // --- Bot Event Listeners ---
 
-client.once('ready', async () => { // Make ready async to fetch channel
+client.once('ready', async () => {
     console.log(`Logged in as ${client.user.tag}!`);
     console.log('Bot is ready to receive slash commands and handle interactions.');
+
+    // --- Set the bot's rich presence here ---
+    client.user.setPresence({
+        activities: [{
+            name: 'against the void with messages.',
+            type: ActivityType.Competing // 'PLAYING', 'LISTENING', 'WATCHING', 'STREAMING', 'COMPETING'
+        }],
+        status: 'dnd' // 'online', 'idle', 'dnd' (do not disturb), 'invisible'
+    });
+    console.log('Bot presence set to "Playing: Filling the void with messages".');
+    // --- End rich presence setting ---
+
 
     // Validate the ANONYMOUS_CHANNEL_ID on bot startup
     if (!ANONYMOUS_CHANNEL_ID) {
         console.error('ERROR: ANONYMOUS_CHANNEL_ID is not set in .env! Anonymous messages will not be sent.');
-        // Optionally, shut down the bot or disable functionality if critical.
-        // process.exit(1);
     } else {
         try {
             const channel = await client.channels.fetch(ANONYMOUS_CHANNEL_ID);
-            if (!channel || channel.type !== 0) { // 0 is GuildText channel type
+            if (!channel || channel.type !== 0) {
                 console.error(`ERROR: Configured ANONYMOUS_CHANNEL_ID (${ANONYMOUS_CHANNEL_ID}) is not a valid text channel.`);
-                // process.exit(1);
             } else {
                 console.log(`Anonymous messages will be sent to #${channel.name} (ID: ${channel.id})`);
             }
         } catch (error) {
             console.error(`ERROR: Could not fetch channel with ID ${ANONYMOUS_CHANNEL_ID}. Check bot permissions and channel ID.`, error);
-            // process.exit(1);
         }
     }
 });
