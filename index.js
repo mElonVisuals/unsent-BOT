@@ -21,7 +21,7 @@ const usedPseudonyms = new Collection();
 // --- Themed Pseudonyms Configuration ---
 const themedPseudonyms = {
     "unsent": ["message with no return", "heard but not seen", "an unknown sender speaks", "for someone you almost knew", "voice without a name"],
-    "animals": ["unsigned and fading", "one of many", "signal from nowhere", "a line left hanging", "dropped in the dark"],
+    "unsent2": ["unsigned and fading", "one of many", "signal from nowhere", "a line left hanging", "dropped in the dark"],
     "random": []
 };
 

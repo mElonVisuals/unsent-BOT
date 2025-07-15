@@ -3,9 +3,9 @@ const { REST, Routes, ApplicationCommandOptionType } = require('discord.js');
 
 // Define your themed pseudonyms here.
 const themedPseudonymsForDeploy = {
-    "Mystical": ["Shadow Whisper", "Silent Oracle", "Moonlit Phantom"],
-    "Animals": ["Lone Wolf", "Night Owl", "Desert Fox"],
-    "Elements": ["Ember Spark", "Aqua Flow", "Stone Sentinel"],
+    "unsent": ["message with no return", "heard but not seen", "an unknown sender speaks", "for someone you almost knew", "voice without a name"],
+    "unsent2": ["unsigned and fading", "one of many", "signal from nowhere", "a line left hanging", "dropped in the dark"],
+    "random": []
 };
 
 // Create choices array for the pseudonym option.
