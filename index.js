@@ -20,9 +20,8 @@ const usedPseudonyms = new Collection();
 
 // --- Themed Pseudonyms Configuration ---
 const themedPseudonyms = {
-    "mystical": ["Shadow Whisper", "Silent Oracle", "Moonlit Phantom", "Stardust Soul", "Forest Mystic"],
-    "animals": ["Lone Wolf", "Night Owl", "Desert Fox", "Silver Serpent", "Silent Puma"],
-    "elements": ["Ember Spark", "Aqua Flow", "Stone Sentinel", "Wind Rider", "Thunder Echo"],
+    "unsent": ["message with no return", "heard but not seen", "an unknown sender speaks", "for someone you almost knew", "voice without a name"],
+    "animals": ["unsigned and fading", "one of many", "signal from nowhere", "a line left hanging", "dropped in the dark"],
     "random": []
 };
 
@@ -152,14 +151,13 @@ client.on('interactionCreate', async interaction => {
             let embedTitle = '';
             let embedFooterText = '';
             let embedColor = 0x36393F;
-            const commonThumbnailUrl = 'https://melonvisuals.me/test/unsent.png';
 
             if (type === 'anonymous') {
-                embedTitle = '🤫 A Whisper in the Dark';
+                embedTitle = '<:__:1393759814802215073> A Whisper in the Dark';
                 embedFooterText = 'Anonymous transmission received.';
                 embedColor = 0x36393F;
             } else if (type === 'pseudonymous') {
-                embedTitle = `🎭 Echo from ${finalPseudonym}`;
+                embedTitle = `<:__:1393759814802215073> Echo from ${finalPseudonym}`;
                 embedFooterText = `Sent from the shadows by ${finalPseudonym}.`;
                 embedColor = 0x7289DA;
             }
