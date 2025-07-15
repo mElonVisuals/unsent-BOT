@@ -18,11 +18,6 @@ const ANONYMOUS_CHANNEL_ID = process.env.ANONYMOUS_CHANNEL_ID;
 const anonymousMessageMap = new Collection();
 
 
-// --- Pseudonym Configuration and Logic are no longer needed ---
-// const availablePseudonyms = [...];
-// function getNextAvailablePseudonym() {...}
-
-
 // --- Bot Event Listeners ---
 
 client.once('ready', async () => {
@@ -32,12 +27,12 @@ client.once('ready', async () => {
     // --- Set the bot's rich presence here ---
     client.user.setPresence({
         activities: [{
-            name: 'Filling the void with messages',
-            type: ActivityType.Playing
+            name: 'to old messages again',
+            type: ActivityType.Listening
         }],
-        status: 'online'
+        status: 'dnd'
     });
-    console.log('Bot presence set to "Playing: Filling the void with messages".');
+    console.log('Bot presence set to "Listening: to old messages again".');
     // --- End rich presence setting ---
 
 
