@@ -45,7 +45,7 @@ client.once('ready', async () => {
     client.user.setPresence({
         activities: [{
             name: 'old messages again',
-            type: ActivityType.Playing
+            type: ActivityType.Listening
         }],
         status: 'dnd'
     });
