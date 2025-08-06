@@ -1,9 +1,7 @@
 require('dotenv').config();
-const { Client, GatewayIntentBits, EmbedBuilder, ActivityType, InteractionResponseFlags } = require('discord.js'); // Removed Collection
-const { version: discordVersion } = require('discord.js'); // Import the version
+const { Client, GatewayIntentBits, EmbedBuilder, ActivityType, InteractionResponseFlags, PermissionsBitField } = require('discord.js');
+const { version: discordVersion } = require('discord.js');
 
-
-// Initialize the Discord client with necessary intents
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
@@ -14,15 +12,9 @@ const client = new Client({
 
 const BOT_TOKEN = process.env.DISCORD_BOT_TOKEN;
 const ANONYMOUS_CHANNEL_ID = process.env.ANONYMOUS_CHANNEL_ID;
+const LOG_CHANNEL_ID = process.env.LOG_CHANNEL_ID; // Added new environment variable
 
-// --- In-memory storage for anonymous message mappings (no longer needed for replies) ---
-// const anonymousMessageMap = new Collection(); // Removed as it's only for replies
-
-// Define the ephemeral flag numerically for robustness
 const EPHEMERAL_FLAG = InteractionResponseFlags?.Ephemeral || 64;
-
-
-// --- Bot Event Listeners ---
 
 client.once('ready', async () => {
     console.log(`Logged in as ${client.user.tag}!`);
@@ -34,20 +26,16 @@ client.once('ready', async () => {
         console.log('InteractionResponseFlags.Ephemeral is available and will be used.');
     }
 
-
     console.log('Bot is ready to receive slash commands and handle interactions.');
 
-    // --- Set the bot's rich presence here ---
     client.user.setPresence({
         activities: [{
-            name: 'old messages again',
-            type: ActivityType.Listening
+            name: 'Filling the void with messages',
+            type: ActivityType.Playing
         }],
-        status: 'dnd'
+        status: 'online'
     });
     console.log('Bot presence set to "Playing: Filling the void with messages".');
-    // --- End rich presence setting ---
-
 
     // Validate the ANONYMOUS_CHANNEL_ID on bot startup
     if (!ANONYMOUS_CHANNEL_ID) {
@@ -64,73 +52,96 @@ client.once('ready', async () => {
             console.error(`ERROR: Could not fetch channel with ID ${ANONYMOUS_CHANNEL_ID}. Check bot permissions and channel ID.`, error);
         }
     }
+    
+    // Validate the LOG_CHANNEL_ID on bot startup
+    if (!LOG_CHANNEL_ID) {
+        console.warn('WARNING: LOG_CHANNEL_ID is not set in .env. Logs will not be sent.');
+    } else {
+        try {
+            const logChannel = await client.channels.fetch(LOG_CHANNEL_ID);
+            if (!logChannel || logChannel.type !== 0) {
+                console.error(`ERROR: Configured LOG_CHANNEL_ID (${LOG_CHANNEL_ID}) is not a valid text channel.`);
+            } else {
+                console.log(`Logs will be sent to #${logChannel.name} (ID: ${logChannel.id})`);
+            }
+        } catch (error) {
+            console.error(`ERROR: Could not fetch channel with ID ${LOG_CHANNEL_ID}. Check bot permissions and channel ID.`, error);
+        }
+    }
 });
 
 
 client.on('interactionCreate', async interaction => {
-    if (interaction.isCommand()) {
-        const { commandName } = interaction;
+    if (!interaction.isCommand() || interaction.commandName !== 'sendanon') {
+        return; // Only process the 'sendanon' command.
+    }
 
-        if (commandName === 'sendanon') {
-            await interaction.deferReply({ flags: EPHEMERAL_FLAG });
+    await interaction.deferReply({ flags: EPHEMERAL_FLAG });
 
-            const content = interaction.options.getString('content');
+    const content = interaction.options.getString('content');
+    const sender = interaction.user;
 
-            // --- Fetch the predefined target channel ---
-            let targetChannel;
-            try {
-                targetChannel = await client.channels.fetch(ANONYMOUS_CHANNEL_ID);
-                if (!targetChannel || targetChannel.type !== 0) {
-                    return await interaction.editReply({
-                        content: 'The configured anonymous message channel is invalid or inaccessible. Please contact a bot administrator.',
-                        flags: EPHEMERAL_FLAG,
-                    });
-                }
-            } catch (error) {
-                console.error(`Error fetching configured channel ID ${ANONYMOUS_CHANNEL_ID}:`, error);
-                return await interaction.editReply({
-                    content: 'An error occurred while trying to access the anonymous message channel. Please contact a bot administrator.',
-                    flags: EPHEMERAL_FLAG,
-                });
-            }
+    let targetChannel;
+    try {
+        targetChannel = await client.channels.fetch(ANONYMOUS_CHANNEL_ID);
+        if (!targetChannel || targetChannel.type !== 0) {
+            return await interaction.editReply({
+                content: 'The configured anonymous message channel is invalid or inaccessible. Please contact a bot administrator.',
+                flags: EPHEMERAL_FLAG,
+            });
+        }
+    } catch (error) {
+        console.error(`Error fetching configured channel ID ${ANONYMOUS_CHANNEL_ID}:`, error);
+        return await interaction.editReply({
+            content: 'An error occurred while trying to access the anonymous message channel. Please contact a bot administrator.',
+            flags: EPHEMERAL_FLAG,
+        });
+    }
 
-            // --- Embed Customization for sendanon ---
-            const embedTitle = '<:__:1393759814802215073> voice without a name';
-            const embedFooterText = 'unsent log captured ::';
-            const embedColor = 0x36393F;
+    const anonymousEmbed = new EmbedBuilder()
+        .setColor(0x36393F)
+        .setTitle('🤫 A Whisper in the Dark')
+        .setDescription(content)
+        .setTimestamp()
+        .setFooter({ text: 'Anonymous transmission received.' });
 
-            const anonymousEmbed = new EmbedBuilder()
-                .setColor(embedColor)
-                .setTitle(embedTitle)
-                .setDescription(content)
-                .setTimestamp()
-                .setFooter({ text: embedFooterText + ' \u200B_one_of_many_' }); // Keep the hidden identifier
+    try {
+        const sentMessage = await targetChannel.send({ embeds: [anonymousEmbed] });
 
-            try {
-                await targetChannel.send({ embeds: [anonymousEmbed] });
-
-                // Mapping anonymous messages is no longer needed without reply functionality
-                // anonymousMessageMap.set(sentMessage.id, interaction.user.id);
-                // console.log(`Mapped anonymous message ${sentMessage.id} to user ${interaction.user.id} in memory.`);
-
-                await interaction.editReply({
-                    content: `Your anonymous message has been sent to #${targetChannel.name}!`,
-                    flags: EPHEMERAL_FLAG,
-                });
-
-                console.log(`[${interaction.user.tag}] sent an anonymous message to #${targetChannel.name}`);
-
-            } catch (error) {
-                console.error(`Failed to send anonymous message to ${targetChannel.name}:`, error);
-                await interaction.editReply({
-                    content: 'There was an error sending your message. Please ensure I have permissions to send messages and embed links in the target channel.',
-                    flags: EPHEMERAL_FLAG,
-                });
+        // --- AUTOMATIC LOGGING ---
+        if (LOG_CHANNEL_ID) {
+            const logChannel = await client.channels.fetch(LOG_CHANNEL_ID);
+            if (logChannel && logChannel.type === 0) {
+                const logEmbed = new EmbedBuilder()
+                    .setColor(0xFF0000)
+                    .setTitle('🚨 New Anonymous Message Sent')
+                    .setDescription(`**Anonymous Message:** [Jump to Message](https://discord.com/channels/${interaction.guildId}/${ANONYMOUS_CHANNEL_ID}/${sentMessage.id})`)
+                    .addFields(
+                        { name: 'Sender User Tag', value: `${sender.tag}`, inline: true },
+                        { name: 'Sender User ID', value: `${sender.id}`, inline: true },
+                        { name: 'Sent At', value: `<t:${Math.floor(Date.now() / 1000)}:f>`, inline: false }
+                    )
+                    .setTimestamp();
+                
+                await logChannel.send({ embeds: [logEmbed] });
             }
         }
-        // Removed the entire 'else if (commandName === 'anonreply')' block
+        // --- END AUTOMATIC LOGGING ---
+
+        await interaction.editReply({
+            content: `Your anonymous message has been sent to #${targetChannel.name}!`,
+            flags: EPHEMERAL_FLAG,
+        });
+
+        console.log(`[${sender.tag}] sent an anonymous message to #${targetChannel.name}`);
+
+    } catch (error) {
+        console.error(`Failed to send anonymous message to ${targetChannel.name}:`, error);
+        await interaction.editReply({
+            content: 'There was an error sending your message. Please ensure I have permissions to send messages and embed links in the target channel.',
+            flags: EPHEMERAL_FLAG,
+        });
     }
 });
-
 
 client.login(BOT_TOKEN);
