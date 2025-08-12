@@ -103,7 +103,7 @@ client.on('interactionCreate', async interaction => {
         .setTitle('🤫 A Whisper in the Dark')
         .setDescription(content)
         .setTimestamp()
-        .setFooter({ text: 'Anonymous transmission received.' });
+        .setFooter({ text: 'Anonymous transmission received' });
 
     try {
         const sentMessage = await targetChannel.send({ embeds: [anonymousEmbed] });
