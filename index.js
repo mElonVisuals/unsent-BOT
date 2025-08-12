@@ -1,6 +1,7 @@
 require('dotenv').config();
 const { Client, GatewayIntentBits, EmbedBuilder, ActivityType, InteractionResponseFlags, PermissionsBitField } = require('discord.js');
 const { version: discordVersion } = require('discord.js');
+console.log('BOT_TOKEN:', BOT_TOKEN ? '[REDACTED]' : 'No token found or empty!');
 
 const client = new Client({
     intents: [
@@ -13,6 +14,7 @@ const client = new Client({
 const BOT_TOKEN = process.env.DISCORD_BOT_TOKEN;
 const ANONYMOUS_CHANNEL_ID = process.env.ANONYMOUS_CHANNEL_ID;
 const LOG_CHANNEL_ID = process.env.LOG_CHANNEL_ID; // Added new environment variable
+
 
 const EPHEMERAL_FLAG = InteractionResponseFlags?.Ephemeral || 64;
 
